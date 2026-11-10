@@ -14,5 +14,5 @@ Suggests: testthat (>= 3.0.0), withr
 Config/testthat/edition: 3
 Depends: R (>= 3.6.0)
 LazyData: true
-URL: https://github.com/zhizhouhe2006/modgee
+URL: https://github.com/zhizhouhe2006/modgee, https://zhizhouhe2006.github.io/modgee/
 BugReports: https://github.com/zhizhouhe2006/modgee/issues

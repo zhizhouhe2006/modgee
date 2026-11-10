@@ -20,3 +20,6 @@
 ^.*\.tar\.gz$
 ^.*\.zip$
 ^Rplots\.pdf$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
