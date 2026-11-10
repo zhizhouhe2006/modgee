@@ -1,0 +1,18 @@
+Package: modgee
+Title: Estimating Extinction from Species Detection Histories
+Version: 0.1.1
+Authors@R: person("Zhizhou", "He", , "hezhizhou2006@gmail.com", role = c("aut", "cre"))
+Description: Fits the original MODGEE model to species detection histories to estimate detection
+          parameters, cumulative extinction and dark extinctions.
+License: MIT + file LICENSE
+Config/roxygen2/version: 8.1.1
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Imports: optimx, Rcpp, ggplot2 (>= 3.4.0), rlang, digest, filelock, parallel
+LinkingTo: Rcpp
+Suggests: testthat (>= 3.0.0), withr
+Config/testthat/edition: 3
+Depends: R (>= 3.6.0)
+LazyData: true
+URL: https://github.com/zhizhouhe2006/modgee
+BugReports: https://github.com/zhizhouhe2006/modgee/issues
