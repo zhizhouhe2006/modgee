@@ -1,6 +1,6 @@
 # modgee
 
-Estimate extinction from species detection histories with MODGEE.
+Estimate extinction from species detection histories with MODGEE (Matrix-Of-Detections-Gives-Extinction-Estimates).
 
 ## Installation
 
