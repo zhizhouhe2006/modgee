@@ -2,7 +2,7 @@ pandoc: 3.8.3
 pkgdown: 2.2.1
 pkgdown_sha: ~
 articles: {}
-last_built: 2026-11-10T15:26Z
+last_built: 2026-11-11T16:58Z
 urls:
   reference: https://zhizhouhe2006.github.io/modgee/reference
   article: https://zhizhouhe2006.github.io/modgee/articles

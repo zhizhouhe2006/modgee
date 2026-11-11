@@ -21,7 +21,11 @@
   : MODGEE estimation from species detection histories
 - [`plot_modgee()`](https://zhizhouhe2006.github.io/modgee/reference/plot_modgee.md)
   : Plot MODGEE result
+- [`print(`*`<modgee_matrix>`*`)`](https://zhizhouhe2006.github.io/modgee/reference/print.modgee_matrix.md)
+  : Print a prepared detection matrix
+- [`print(`*`<modgee_result>`*`)`](https://zhizhouhe2006.github.io/modgee/reference/print.modgee_result.md)
+  : Print a MODGEE result
 - [`read_matrix()`](https://zhizhouhe2006.github.io/modgee/reference/read_matrix.md)
   : Read and prepare a species detection matrix
 - [`save_result()`](https://zhizhouhe2006.github.io/modgee/reference/save_result.md)
-  : Save MODGEE results as CSV files
+  : Save MODGEE results as CSV and RDS files

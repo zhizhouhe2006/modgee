@@ -38,3 +38,9 @@ release.
 [`example_groups`](https://zhizhouhe2006.github.io/modgee/reference/example_groups.md),
 [`example_result`](https://zhizhouhe2006.github.io/modgee/reference/example_result.md),
 [`example_grouped_result`](https://zhizhouhe2006.github.io/modgee/reference/example_grouped_result.md)
+
+## Display
+
+Printing example_M displays only the matrix. Preparation metadata remain
+available through attr(example_M, "preparation") and are retained for
+fitting. The object inherits from modgee_matrix.

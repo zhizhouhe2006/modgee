@@ -1,4 +1,4 @@
-# Save MODGEE results as CSV files
+# Save MODGEE results as CSV and RDS files
 
 Export existing estimates without refitting or recomputing intervals.
 
@@ -31,10 +31,10 @@ save_result(result, path = ".", prefix = "modgee", overwrite = FALSE)
 
 ## Value
 
-Writes three to five CSV files to `path`. Each filename starts with
-`prefix` followed by an underscore; an empty prefix adds nothing. For
-example, `prefix = "hk"` produces `hk_summary.csv` and, when bootstrap
-results are available, `hk_CI.csv`.
+Writes three to five CSV files and one RDS file to `path`. Each filename
+starts with `prefix` followed by an underscore; an empty prefix adds
+nothing. For example, `prefix = "hk"` produces `hk_summary.csv` and,
+when bootstrap results are available, `hk_CI.csv`.
 
 **CSV files**
 
@@ -116,17 +116,17 @@ non-NULL, CI.csv combines bootstrap\$curve and
 bootstrap\$group_results\$curve, with scope and group columns. These are
 pointwise cumulative-extinction intervals: time, estimate, lower, upper
 and n_valid. No summary-metric intervals or replicate tables are
-exported.
+exported to CSV.
 
 CSV files use UTF-8, comma separators, NA for missing values and no row
 numbers. Estimates are not rounded, clipped or recomputed. All tables
-and filename conflicts are checked before writing. CSVs are staged
+and filename conflicts are checked before writing. All files are staged
 before installation; a failed installation attempts to restore previous
 files. This is not a concurrent-writer transaction; use a separate
 directory for simultaneous exports. Optional files left by earlier calls
-are not deleted; use distinct prefixes for different analyses. Use
-saveRDS to preserve the complete R object, including bootstrap settings
-and recovery information.
+are not deleted; use distinct prefixes for different analyses. The
+prefixed result.rds file preserves the complete R object, including
+diagnostics and bootstrap information.
 
 ## Usage Examples
 
@@ -154,3 +154,13 @@ and recovery information.
 [`example_result`](https://zhizhouhe2006.github.io/modgee/reference/example_result.md),
 [`example_grouped_result`](https://zhizhouhe2006.github.io/modgee/reference/example_grouped_result.md),
 [`example_bootstrap_result`](https://zhizhouhe2006.github.io/modgee/reference/example_bootstrap_result.md)
+
+## Complete R object
+
+The RDS filename is `modgee_result.rds` with the default prefix,
+`hk_result.rds` with `prefix = "hk"`, or `result.rds` with an empty
+prefix. Restore the complete object with
+[`readRDS()`](https://rdrr.io/r/base/readRDS.html). RDS exports use the
+same overwrite checks, staging and rollback as CSV files. The function
+invisibly returns a data frame with columns `table`, `file`, `nrow` and
+`ncol`. The RDS row has table = "result" and NA for both dimensions.

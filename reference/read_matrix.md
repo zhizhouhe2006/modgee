@@ -48,20 +48,26 @@ read_matrix(
 A numeric 0/1 matrix with species row names and time column names. A
 `preparation` attribute records the input type, input interval width,
 output interval width, retained labels, baseline selection and coverage.
-Coverage endpoints use an exclusive upper bound.
+Coverage endpoints use an exclusive upper bound. The returned matrix has
+class `modgee_matrix`; printing shows only matrix entries and row/column
+names. Preparation metadata remain accessible through
+`attr(M, "preparation")`. Existing informational messages are retained.
 
 ## Details
 
-At least two time columns are required. Numeric column names represent
-the starting years of consecutive, equally spaced observation intervals.
-The input interval width is inferred from the spacing between column
-names. Missing observation intervals must not be omitted from the input.
-Equally spaced labels are interpreted as consecutive intervals, not
-isolated years.
+At least two time columns are required. Column names must represent
+finite positive integers (zero, negative and fractional years are
+rejected). Integer-valued numeric forms such as 2000.0 are accepted. The
+names represent the starting years of consecutive, equally spaced
+observation intervals. The input interval width is inferred from the
+spacing between column names. Missing observation intervals must not be
+omitted from the input. Equally spaced labels are interpreted as
+consecutive intervals, not isolated years.
 
-The output width must be an integer multiple of the input width. Input
-intervals must fit within calendar-aligned output intervals without
-crossing their boundaries. Output labels follow
+The output width must be an integer multiple of the input width. An
+invalid width error reports both the supplied timestep and input width.
+Input intervals must fit within calendar-aligned output intervals
+without crossing their boundaries. Output labels follow
 `floor(time / timestep) * timestep`. For input labels 1900, 1910, 1920,
 use `timestep = 10` to retain the original interval width. Such data
 cannot be split into annual records.
@@ -144,3 +150,10 @@ column is interpreted as covering one full inferred input interval.
 [`example_result`](https://zhizhouhe2006.github.io/modgee/reference/example_result.md),
 [`example_grouped_result`](https://zhizhouhe2006.github.io/modgee/reference/example_grouped_result.md),
 [`example_bootstrap_result`](https://zhizhouhe2006.github.io/modgee/reference/example_bootstrap_result.md)
+
+## Console display
+
+Every successful call prints the prepared matrix, including calls
+assigned to a variable. The complete matrix is returned invisibly to
+avoid duplicate automatic printing; preparation metadata are retained
+but not displayed.

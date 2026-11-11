@@ -72,9 +72,10 @@ fit_modgee(
 
 - bootstrap:
 
-  NULL (default), or a positive integer giving the number of scheduled
-  full-pipeline species bootstrap replicates. Failed and nonconverged
-  replicates count toward this number and are not resampled.
+  NULL (default), or an integer of at least 3 giving the number of
+  scheduled full-pipeline species bootstrap replicates. Failed and
+  nonconverged replicates count toward this number and are not
+  resampled.
 
 - CI:
 
@@ -300,23 +301,31 @@ invalid samples are saved as failures. All-zero rows are not sampled.
 Negative dark extinction estimates are retained. No species-level or
 parameter intervals are computed.
 
-Checkpoints are written below `getwd()/modgee_bootstrap` after the
-original fit and after every replicate. Sampling plans and fitting
-random states are saved before fitting. Rerun the same call in the same
-working directory to resume. An interrupted replicate restarts from its
-saved sample and initial random state; optimizer iterations within a
-replicate are not checkpointed. Completed failures and nonconverged fits
-are not retried. Increase bootstrap to extend a task, or change CI to
-recompute intervals without refitting. A smaller request summarizes only
-the first requested replicates.
+Checkpoints are written below `getwd()/modgee_bootstrap`, in numbered
+run directories. An unfinished matching run resumes in the same working
+directory. After all requested replicates have been attempted, intervals
+generated and final output printed, a completion marker is committed. A
+subsequent call starts a new run, refitting the original model and all
+requested replicates. Old runs are retained. Failed or nonconverged
+replicates count as attempted; they do not prevent completion. Changing
+bootstrap or CI after completion also starts a new run.
 
-An existing task owns its saved seed; set.seed does not reset that task.
-Use a different persistent working directory for an independent run.
+Sampling plans and random states are saved before fitting. An
+interrupted replicate restarts from its saved sample and random state,
+not its optimizer iteration. Within an unfinished run, saved failures
+and nonconverged fits are not retried. A changed bootstrap count uses
+the requested prefix of saved replicates or extends that unfinished run;
+changed CI recomputes intervals. An unfinished run owns its saved seed.
+For a fresh run, the caller's current random state is used; repeating
+the same seed can reproduce the same numerical results despite fresh
+computation.
+
 Changing the input, model implementation or numerical dependency
-versions starts a new task. Tasks are protected by a process lock.
-Invalid sampling plans stop recovery; corrupt result files are
-quarantined and the saved sample is fitted again. Write failures stop
-execution.
+versions starts a new task. Task locks cover run selection, fitting and
+completion. Invalid plans or completion markers stop recovery; corrupt
+result files are quarantined and refitted. Write failures leave a run
+unfinished. Legacy flat checkpoints from older versions are preserved
+but are not resumed by this run-directory format.
 
 Bootstrap restores the caller's random state. Reproducibility assumes
 the same numerical environment. Only fully converged replicates with
@@ -402,3 +411,73 @@ cached separately and is never repeated for bootstrap samples.
 [`example_result`](https://zhizhouhe2006.github.io/modgee/reference/example_result.md),
 [`example_grouped_result`](https://zhizhouhe2006.github.io/modgee/reference/example_grouped_result.md),
 [`example_bootstrap_result`](https://zhizhouhe2006.github.io/modgee/reference/example_bootstrap_result.md)
+
+## Console messages
+
+When bootstrap is NULL, each completed call reports convergence of the
+main model's detection, extinction and singleton fits. Unsuccessful
+stages are listed separately; singleton entries include the species
+name. Missing convergence codes are reported as unverified. The
+convergence table includes `species`, which is NA for the two main
+stages. Code 999 records an optimizer error; a singleton may still have
+a fallback estimate.
+
+If do_k is TRUE, the free-k comparison status is reported separately. An
+unsuccessful comparison may have been skipped or failed its validity
+checks. It does not change the main model's convergence flag.
+
+Negative overall or group dark-extinction estimates produce an
+explanatory message and are retained unchanged. Undetected species
+surviving at the final timestep are one possible explanation, not a
+confirmed cause.
+
+These summaries use [`message()`](https://rdrr.io/r/base/message.html)
+and can be hidden with
+[`suppressMessages()`](https://rdrr.io/r/base/message.html). Calls with
+bootstrap enabled, including the original fit and all replicates, do not
+emit per-fit convergence summaries. Existing optimizer warnings and
+bootstrap diagnostics remain available. Calls that stop with an error do
+not print a completion summary.
+
+## Default display
+
+The returned object has class `modgee_result` and retains all result
+components. Printing shows `summary`, followed by
+`group_results$summary` and `do_k` when present. Every completed call
+explicitly prints these summaries, including calls assigned to a
+variable. The complete object is returned invisibly to avoid duplicate
+automatic printing. This display also applies once to completed
+bootstrap results, not each replicate. Detection, extinction and
+singleton-stage progress is printed as fitting proceeds, including the
+original bootstrap fit and each newly fitted replicate. The
+singleton-stage line is also printed when there are no singleton
+species; in that case no singleton optimization is needed. Failed fits
+only report stages reached. Reused checkpoint fits are not fitted again
+and do not emit these stage lines. Internal do_k and do_l flags are not
+printed. For non-bootstrap calls, the generic duplicate convergence
+warning is suppressed. Other optimizer warnings are retained.
+Convergence messages omit numerical status codes; the original codes
+remain available in `result$convergence`.
+
+## Singleton numerical errors
+
+If a singleton log-likelihood is undefined during the initial-value
+search, fitting stops with an error identifying the species and search
+stage. Sparse detection histories or numerical instability are possible
+causes, not confirmed diagnoses. The failed candidate is not silently
+skipped.
+
+## Interpretation messages
+
+Negative dark-extinction messages clarify that a negative estimate does
+not, by itself, invalidate the cumulative extinction rate or fitted
+parameters. For do_k, the printed comparison is followed by an AIC
+interpretation. A higher free-k AIC indicates no clear evidence of a
+relationship; a lower AIC indicates evidence of a relationship. With
+lower AIC, negative k indicates higher risk among less detectable
+species and possible underestimation by the fixed-k model; positive k
+indicates the reverse and possible overestimation. These are model-based
+interpretations, not proof of independence or a quantified bias. Equal
+AIC and unavailable comparisons receive separate messages. Main
+estimates remain fixed-k. Bootstrap prints these interpretations once
+for the final result, not each replicate.
