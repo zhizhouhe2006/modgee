@@ -2,9 +2,9 @@
   scalar <- function(x) (is.double(x) || is.integer(x)) && !is.object(x) &&
     is.null(dim(x)) && length(x) == 1L && is.finite(x)
   if (!is.null(bootstrap) &&
-      (!scalar(bootstrap) || bootstrap < 1 || bootstrap != floor(bootstrap) ||
+      (!scalar(bootstrap) || bootstrap < 3 || bootstrap != floor(bootstrap) ||
        bootstrap > .Machine$integer.max))
-    stop("bootstrap must be NULL or a single positive integer.", call. = FALSE)
+    stop("bootstrap must be NULL or a single integer greater than or equal to 3.", call. = FALSE)
   if (!scalar(CI) || CI <= 0 || CI >= 1)
     stop("CI must be a single finite number strictly between 0 and 1.", call. = FALSE)
 }
@@ -72,7 +72,8 @@
        plan_hash = .bootstrap_hash(plan))
 }
 
-.bootstrap_modgee <- function(M, groups, reference_group, do_k, B, CI) {
+.bootstrap_modgee <- function(M, groups, reference_group, do_k, B, CI,
+                              .finalize = base::identity) {
   if (!is.logical(do_k) || length(do_k) != 1L || !is.null(dim(do_k)) || is.na(do_k))
     stop("do_k must be TRUE or FALSE.", call. = FALSE)
   validated <- .validate_modgee_matrix(M)
@@ -83,15 +84,16 @@
   info <- .normalize_modgee_groups(groups, rownames(M), counts, reference_group)
   identity <- .bootstrap_identity(M, info)
   task <- .bootstrap_hash(identity)
-  directory <- file.path(getwd(), "modgee_bootstrap", task)
-  if (!dir.exists(directory) && !dir.create(directory, recursive = TRUE))
-    stop("Cannot create bootstrap directory: ", directory, call. = FALSE)
-  directory <- normalizePath(directory, winslash = "/", mustWork = TRUE)
-  message("Bootstrap checkpoints: ", directory)
-  lock <- filelock::lock(file.path(directory, "task.lock"), timeout = 0)
-  if (is.null(lock)) stop("Bootstrap task is locked by another process: ", directory,
+  task_dir <- file.path(getwd(), "modgee_bootstrap", task)
+  if (!dir.exists(task_dir) && !dir.create(task_dir, recursive = TRUE))
+    stop("Cannot create bootstrap directory: ", task_dir, call. = FALSE)
+  task_dir <- normalizePath(task_dir, winslash = "/", mustWork = TRUE)
+  lock <- filelock::lock(file.path(task_dir, "task.lock"), timeout = 0)
+  if (is.null(lock)) stop("Bootstrap task is locked by another process: ", task_dir,
                           call. = FALSE)
   on.exit(filelock::unlock(lock), add = TRUE)
+  directory <- .bootstrap_select_run(task_dir, task)
+  message("Bootstrap checkpoints: ", directory)
   old_rng <- .bootstrap_rng()
   on.exit(.bootstrap_set_rng(old_rng), add = TRUE)
   manifest_path <- file.path(directory, "manifest.rds")
@@ -182,6 +184,11 @@
     records[[b]] <- saved
   }
   result$bootstrap <- .bootstrap_collect(result, records, CI, directory, resumed)
+  # Finish public output before committing completion; errors remain resumable.
+  result <- .finalize(result)
+  .bootstrap_write(list(requested = B, CI = CI, do_k = do_k,
+                        finished_at = as.character(Sys.time())),
+                   file.path(directory, "completed.rds"), task, "completed")
   result
 }
 
@@ -249,4 +256,25 @@
     group_results = if (is.null(result$group_results)) NULL else
       list(summary = intervals$group_summary, curve = intervals$group_curve),
     diagnostics = diagnostics, replicates = replicas)
+}
+
+# Called while holding the task-level lock. Legacy flat checkpoints stay untouched.
+.bootstrap_select_run <- function(task_dir, task) {
+  runs <- list.dirs(task_dir, full.names = TRUE, recursive = FALSE)
+  runs <- sort(runs[grepl("^run_[0-9]{8}$", basename(runs))])
+  pending <- character()
+  for (run in runs) {
+    marker <- file.path(run, "completed.rds")
+    if (file.exists(marker)) {
+      .bootstrap_read(marker, task, "completed")
+    } else pending <- c(pending, run)
+  }
+  if (length(pending) > 1L)
+    stop("Multiple unfinished bootstrap runs found in: ", task_dir, call. = FALSE)
+  if (length(pending)) return(pending[[1L]])
+  index <- if (length(runs)) max(as.integer(sub("run_", "", basename(runs)))) + 1L else 1L
+  if (is.na(index) || index > 99999999L) stop("Bootstrap run limit reached.")
+  directory <- file.path(task_dir, sprintf("run_%08d", index))
+  if (!dir.create(directory)) stop("Cannot create bootstrap run: ", directory, call. = FALSE)
+  directory
 }

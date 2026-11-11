@@ -14,13 +14,16 @@
 #'   interval in the selected range with at least this many detected species.
 #'
 #' @details
-#' At least two time columns are required. Numeric column names represent the
+#' At least two time columns are required. Column names must represent finite
+#' positive integers (zero, negative and fractional years are rejected).
+#' Integer-valued numeric forms such as 2000.0 are accepted. The names represent the
 #' starting years of consecutive, equally spaced observation intervals.
 #' The input interval width is inferred from the spacing between column names.
 #' Missing observation intervals must not be omitted from the input. Equally
 #' spaced labels are interpreted as consecutive intervals, not isolated years.
 #'
 #' The output width must be an integer multiple of the input width.
+#' An invalid width error reports both the supplied timestep and input width.
 #' Input intervals must fit within calendar-aligned output intervals without
 #' crossing their boundaries. Output labels follow
 #' \code{floor(time / timestep) * timestep}.
@@ -56,8 +59,15 @@
 #' @return A numeric 0/1 matrix with species row names and time column names.
 #'   A \code{preparation} attribute records the input type, input interval width,
 #'   output interval width, retained labels, baseline selection and coverage.
-#'   Coverage endpoints use an exclusive upper bound.
+#'   Coverage endpoints use an exclusive upper bound. The returned matrix has
+#'   class \code{modgee_matrix}; its print method displays only matrix entries
+#'   and row/column names. Preparation metadata remain accessible through
+#'   \code{attr(M, "preparation")}. Existing informational messages are retained.
 #'
+#' @section Console display:
+#' Every successful call prints the prepared matrix, including calls assigned to
+#' a variable. The complete matrix is returned invisibly to avoid duplicate
+#' automatic printing; preparation metadata are retained but not displayed.
 #' @export
 #' @seealso
 #' \strong{Functions:}
@@ -150,8 +160,9 @@ read_matrix <- function(data, timestep = 1, time_range = NULL,
   ratio <- timestep / input_width
   if (!is.finite(ratio) || ratio < 1 ||
       !.matrix_near(ratio, round(ratio))) {
-    stop("'timestep' must be an integer multiple of the input interval width.",
-         call. = FALSE)
+    stop("'timestep' must be an integer multiple of the input interval width. ",
+         "Received timestep = ", timestep,
+         "; input interval width = ", input_width, ".", call. = FALSE)
   }
   if (!all(.matrix_near(times / input_width,
                         round(times / input_width)))) {
@@ -252,7 +263,9 @@ read_matrix <- function(data, timestep = 1, time_range = NULL,
     baseline = labels[1],
     coverage = coverage
   )
-  M
+  class(M) <- c("modgee_matrix", "matrix", "array")
+  print.modgee_matrix(M)
+  invisible(M)
 }
 
 
@@ -318,9 +331,9 @@ read_matrix <- function(data, timestep = 1, time_range = NULL,
          label_details(missing_labels), ".", call. = FALSE)
   }
   times <- suppressWarnings(as.numeric(time_names))
-  invalid_labels <- which(!is.finite(times))
+  invalid_labels <- which(!is.finite(times) | times <= 0 | times != floor(times))
   if (length(invalid_labels)) {
-    stop("Time column names must be finite numbers. Invalid: ",
+    stop("Time column names must be positive integers. Invalid: ",
          label_details(invalid_labels), ".", call. = FALSE)
   }
   duplicate_years <- unique(times[duplicated(times)])

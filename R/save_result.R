@@ -1,4 +1,4 @@
-#' Save MODGEE results as CSV files
+#' Save MODGEE results as CSV and RDS files
 #'
 #' Export existing estimates without refitting or recomputing intervals.
 #' @param result A complete result returned by \code{fit_modgee()}.
@@ -8,7 +8,7 @@
 #'   is empty or already ends with one. Defaults to \code{"modgee"}.
 #' @param overwrite Allow replacement of existing target files. Defaults to FALSE.
 #' @return
-#' Writes three to five CSV files to \code{path}. Each filename starts with
+#' Writes three to five CSV files and one RDS file to \code{path}. Each filename starts with
 #' \code{prefix} followed by an underscore; an empty prefix adds nothing.
 #' For example, \code{prefix = "hk"} produces \file{hk_summary.csv} and,
 #' when bootstrap results are available, \file{hk_CI.csv}.
@@ -76,16 +76,24 @@
 #' CI.csv combines bootstrap$curve and
 #' bootstrap$group_results$curve, with scope and group columns. These are
 #' pointwise cumulative-extinction intervals: time, estimate, lower, upper
-#' and n_valid. No summary-metric intervals or replicate tables are exported.
+#' and n_valid. No summary-metric intervals or replicate tables are exported to CSV.
 #'
 #' CSV files use UTF-8, comma separators, NA for missing values and no row
 #' numbers. Estimates are not rounded, clipped or recomputed. All tables and
-#' filename conflicts are checked before writing. CSVs are staged before
+#' filename conflicts are checked before writing. All files are staged before
 #' installation; a failed installation attempts to restore previous files.
 #' This is not a concurrent-writer transaction; use a separate directory for
 #' simultaneous exports. Optional files left by earlier calls are not deleted;
-#' use distinct prefixes for different analyses. Use saveRDS to preserve the
-#' complete R object, including bootstrap settings and recovery information.
+#' use distinct prefixes for different analyses. The prefixed result.rds file
+#' preserves the complete R object, including diagnostics and bootstrap information.
+#' @section Complete R object:
+#' The RDS filename is \file{modgee_result.rds} with the default prefix,
+#' \file{hk_result.rds} with \code{prefix = "hk"}, or \file{result.rds} with
+#' an empty prefix. Restore the complete object with \code{readRDS()}.
+#' RDS exports use the same overwrite checks, staging and rollback as CSV files.
+#' The function invisibly returns a data frame with columns \code{table},
+#' \code{file}, \code{nrow} and \code{ncol}. The RDS row has table = "result"
+#' and NA for both dimensions.
 #' @export
 #' @seealso
 #' \strong{Functions:}
@@ -234,15 +242,16 @@ save_result <- function(result, path = ".", prefix = "modgee", overwrite = FALSE
     stop("Cannot create output directory: ", path, call. = FALSE)
   }
   path <- normalizePath(path, winslash = "/", mustWork = TRUE)
-  targets <- file.path(path, paste0(stem, names(tables), ".csv"))
+  targets <- file.path(path, c(paste0(stem, names(tables), ".csv"),
+                              paste0(stem, "result.rds")))
   existing <- file.exists(targets)
-  if (any(dir.exists(targets))) stop("A target CSV path is a directory.", call. = FALSE)
+  if (any(dir.exists(targets))) stop("A target file path is a directory.", call. = FALSE)
   if (!overwrite && any(existing)) {
     stop("Files already exist; use overwrite = TRUE: ",
          paste(basename(targets[existing]), collapse = ", "), call. = FALSE)
   }
   stage <- tempfile(".modgee-export-", tmpdir = path)
-  if (!dir.create(stage)) stop("Cannot stage CSV files in: ", path, call. = FALSE)
+  if (!dir.create(stage)) stop("Cannot stage result files in: ", path, call. = FALSE)
   keep_stage <- FALSE
   on.exit(if (!keep_stage) unlink(stage, recursive = TRUE), add = TRUE)
   staged <- file.path(stage, basename(targets))
@@ -251,15 +260,16 @@ save_result <- function(result, path = ".", prefix = "modgee", overwrite = FALSE
     utils::write.csv(tables[[i]], staged[i], row.names = FALSE,
                      na = "NA", fileEncoding = "UTF-8")
   }
+  saveRDS(result, staged[length(staged)])
   if (any(existing) && !all(file.copy(targets[existing], backups[existing]))) {
-    stop("Cannot back up existing CSV files; no files were replaced.", call. = FALSE)
+    stop("Cannot back up existing result files; no files were replaced.", call. = FALSE)
   }
   installed <- integer()
   tryCatch({
     for (i in seq_along(targets)) {
       installed <- c(installed, i)
       if (!file.copy(staged[i], targets[i], overwrite = overwrite)) {
-        stop("Cannot write CSV: ", targets[i], call. = FALSE)
+        stop("Cannot write file: ", targets[i], call. = FALSE)
       }
     }
   }, error = function(e) {
@@ -279,9 +289,10 @@ save_result <- function(result, path = ".", prefix = "modgee", overwrite = FALSE
     }
     stop(e)
   })
-  files <- data.frame(table = names(tables), file = targets,
-                      nrow = vapply(tables, nrow, integer(1)),
-                      ncol = vapply(tables, ncol, integer(1)), row.names = NULL)
-  message("Saved ", nrow(files), " CSV files to ", path)
+  files <- data.frame(table = c(names(tables), "result"), file = targets,
+                      nrow = c(vapply(tables, nrow, integer(1)), NA_integer_),
+                      ncol = c(vapply(tables, ncol, integer(1)), NA_integer_),
+                      row.names = NULL)
+  message("Saved ", length(tables), " CSV files and 1 RDS file to ", path)
   invisible(files)
 }

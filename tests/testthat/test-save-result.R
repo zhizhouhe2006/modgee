@@ -20,11 +20,12 @@ verify_save_result <- function() {
   fails <- function(expr) stopifnot(inherits(tryCatch(force(expr), error = identity), 'error'))
   a <- file.path(root, 'base')
   vis <- withVisible(save_result(base, a, prefix = ''))
-  stopifnot(!vis$visible, nrow(vis$value) == 3L,
-    identical(sort(list.files(a)), sort(c('summary.csv', 'time_result.csv', 'species_result.csv'))),
+  stopifnot(!vis$visible, nrow(vis$value) == 4L,
+    identical(sort(list.files(a)), sort(c('summary.csv', 'time_result.csv', 'species_result.csv', 'result.rds'))),
     read(a, 'summary.csv')$dark_extinct == -.1,
     identical(read(a, 'species_result.csv')$species, base$species$species),
     is.na(read(a, 'species_result.csv')$d[3]))
+  stopifnot(identical(readRDS(file.path(a, "result.rds")), base))
   before <- tools::md5sum(vis$value$file)
   fails(save_result(base, a, prefix = ''))
   stopifnot(identical(before, tools::md5sum(vis$value$file)))
@@ -54,9 +55,10 @@ verify_save_result <- function() {
   grouped$bootstrap <- list(curve = bc, group_results = list(curve = bgc))
   b <- file.path(root, 'grouped')
   files <- save_result(grouped, b, prefix = 'hk_')
-  stopifnot(nrow(files) == 5L, 'CI' %in% files$table,
+  stopifnot(nrow(files) == 6L, 'CI' %in% files$table,
     file.exists(file.path(b, 'hk_CI.csv')),
     !file.exists(file.path(b, 'hk_bootstrap_summary.csv')))
+  stopifnot(identical(readRDS(file.path(b, 'hk_result.rds')), grouped))
   ss <- read(b, 'hk_summary.csv')
   tt <- read(b, 'hk_time_result.csv')
   bb <- read(b, 'hk_CI.csv')
@@ -68,15 +70,15 @@ verify_save_result <- function() {
     is.na(bb$lower[4]), isTRUE(all.equal(read(b, 'hk_k_comparison.csv'), grouped$do_k)))
   single_boot <- base
   single_boot$bootstrap <- list(curve = bc, group_results = NULL)
-  stopifnot(nrow(save_result(single_boot, file.path(root, 'boot'))) == 4L)
+  stopifnot(nrow(save_result(single_boot, file.path(root, 'boot'))) == 5L)
   grouped$bootstrap <- NULL
-  stopifnot(nrow(save_result(grouped, file.path(root, 'k'))) == 4L)
+  stopifnot(nrow(save_result(grouped, file.path(root, 'k'))) == 5L)
   grouped$do_k <- NULL
-  stopifnot(nrow(save_result(grouped, file.path(root, 'groups'))) == 3L)
+  stopifnot(nrow(save_result(grouped, file.path(root, 'groups'))) == 4L)
   one <- grouped
   one$group_results$summary <- gs[1, ]
   one$group_results$curve <- gc[gc$group == gs$group[1], ]
-  stopifnot(nrow(save_result(one, file.path(root, 'one'))) == 3L)
+  stopifnot(nrow(save_result(one, file.path(root, 'one'))) == 4L)
   bad <- grouped
   bad$group_results$curve$time[1] <- 9999
   fails(save_result(bad, file.path(root, 'bad')))
@@ -91,6 +93,15 @@ verify_save_result <- function() {
   fails(save_result(base, conflict))
   stopifnot(identical(list.files(conflict), 'modgee_species_result.csv'),
     identical(readLines(file.path(conflict, 'modgee_species_result.csv')), 'unchanged'))
+  rds_conflict <- file.path(root, 'rds_conflict')
+  dir.create(rds_conflict)
+  saveRDS('unchanged', file.path(rds_conflict, 'modgee_result.rds'))
+  fails(save_result(base, rds_conflict))
+  stopifnot(identical(list.files(rds_conflict), 'modgee_result.rds'),
+            identical(readRDS(file.path(rds_conflict, 'modgee_result.rds')), 'unchanged'))
+  class(base) <- c('modgee_result', 'list')
+  save_result(base, file.path(root, 'classed'))
+  stopifnot(identical(readRDS(file.path(root, 'classed', 'modgee_result.rds')), base))
   message('save_result verification passed.')
   invisible(TRUE)
 }

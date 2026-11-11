@@ -32,3 +32,8 @@ dim(example_M)
 \code{\link{example_file}}, \code{\link{example_groups}}, \code{\link{example_result}}, \code{\link{example_grouped_result}}
 }
 \keyword{datasets}
+\section{Display}{
+Printing example_M displays only the matrix. Preparation metadata
+remain available through attr(example_M, "preparation") and are
+retained for fitting. The object inherits from modgee_matrix.
+}

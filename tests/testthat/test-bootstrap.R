@@ -40,44 +40,33 @@ bootstrap_test_call <- function(B = 3L, CI = .95, ...) {
 }
 
 test_that("bootstrap parameters are strict", {
-  for (x in list(0, -1, 1.2, NA_real_, Inf, TRUE, "2", c(1, 2), matrix(2),
+  for (x in list(0, 1, 2, -1, 1.2, NA_real_, Inf, TRUE, "2", c(1, 2), matrix(2),
                  structure(2, class = "custom")))
     expect_error(fit_modgee(example_M, bootstrap = x), "bootstrap")
   for (x in list(0, 1, -1, NA_real_, Inf, TRUE, "0.95", c(.9, .95), matrix(.95)))
     expect_error(fit_modgee(example_M, CI = x), "CI")
 })
 
-test_that("completed fits are reused, extended and summarized at a new CI", {
+test_that("completed runs start fresh and preserve old checkpoints", {
   ctl <- bootstrap_test_setup()
   set.seed(10)
   seed <- .Random.seed
   a <- bootstrap_test_call()
   expect_identical(.Random.seed, seed)
-  expect_equal(ctl$original, 1L)
-  expect_equal(ctl$replicate, 3L)
-  expect_equal(a$bootstrap$status$completed, 3L)
   path <- a$bootstrap$settings$checkpoint_dir
-  files <- list.files(file.path(path, "results"), full.names = TRUE)
+  expect_true(file.exists(file.path(path, "completed.rds")))
+  files <- list.files(path, recursive = TRUE, full.names = TRUE)
   sums <- tools::md5sum(files)
-  set.seed(20)
   b <- bootstrap_test_call(CI = .9)
-  expect_equal(ctl$replicate, 3L)
+  expect_equal(ctl$original, 2L)
+  expect_equal(ctl$replicate, 6L)
+  expect_false(b$bootstrap$status$resumed)
+  expect_false(identical(path, b$bootstrap$settings$checkpoint_dir))
   expect_identical(sums, tools::md5sum(files))
-  expect_true(b$bootstrap$status$resumed)
-  vals <- subset(b$bootstrap$replicates$summary, metric == "dark_extinct")$value
-  ci <- subset(b$bootstrap$summary, metric == "dark_extinct")
-  expect_equal(ci$lower, unname(quantile(vals, .05)))
-  expect_equal(ci$upper, unname(quantile(vals, .95)))
-  expect_true(ci$upper < 0)
   c <- bootstrap_test_call(5)
-  expect_equal(ctl$replicate, 5L)
-  expect_equal(ctl$original, 1L)
-  d <- bootstrap_test_call(2)
-  expect_equal(ctl$replicate, 5L)
-  expect_equal(d$bootstrap$status$completed, 2L)
-  expect_length(list.files(file.path(path, "results")), 5L)
-  expect_equal(a$bootstrap$replicates$curve,
-               subset(c$bootstrap$replicates$curve, replicate <= 3), ignore_attr = TRUE)
+  expect_equal(ctl$original, 3L)
+  expect_equal(ctl$replicate, 11L)
+  expect_equal(c$bootstrap$status$completed, 5L)
 })
 
 test_that("interruption resumes the exact sample and random starts", {
@@ -93,7 +82,8 @@ test_that("interruption resumes the exact sample and random starts", {
   set.seed(123)
   interrupted <- tryCatch(bootstrap_test_call(5), interrupt = function(e) e)
   expect_s3_class(interrupted, "interrupt")
-  path <- list.dirs("modgee_bootstrap", recursive = FALSE, full.names = TRUE)
+  paths <- list.dirs("modgee_bootstrap", recursive = TRUE, full.names = TRUE)
+  path <- paths[grepl("^run_[0-9]{8}$", basename(paths))]
   files <- list.files(file.path(path, "results"), full.names = TRUE)
   expect_length(files, 3L)
   sums <- tools::md5sum(files)
@@ -120,6 +110,10 @@ test_that("errors and nonconvergence are terminal and not resampled", {
   expect_equal(a$bootstrap$status$nonconverged, 1L)
   expect_true(all(is.na(a$bootstrap$curve$lower)))
   expect_true(all(a$bootstrap$curve$n_valid == 1L))
+  path <- a$bootstrap$settings$checkpoint_dir
+  expect_true(file.exists(file.path(path, "completed.rds")))
+  # Simulate interruption before committing completion.
+  unlink(file.path(path, "completed.rds"))
   b <- bootstrap_test_call()
   expect_equal(ctl$replicate, 3L)
   expect_equal(a$bootstrap$diagnostics, b$bootstrap$diagnostics)
@@ -131,11 +125,13 @@ test_that("corrupt results recover from plans and corrupt plans stop", {
   a <- bootstrap_test_call()
   path <- a$bootstrap$settings$checkpoint_dir
   rp <- file.path(path, "results", "rep_00000002.rds")
+  unlink(file.path(path, "completed.rds"))
   writeLines("interrupted write", rp)
   b <- bootstrap_test_call()
   expect_equal(ctl$replicate, 4L)
   expect_equal(a$bootstrap$replicates, b$bootstrap$replicates)
   expect_length(list.files(file.path(path, "results"), pattern = "corrupt"), 1L)
+  unlink(file.path(path, "completed.rds"))
   writeLines("corrupt", file.path(path, "plans", "rep_00000002.rds"))
   expect_error(bootstrap_test_call(), "Invalid bootstrap checkpoint")
 })
@@ -151,7 +147,7 @@ test_that("NULL bootstrap has no disk or RNG side effects beyond the old fit", {
   expect_false(dir.exists("modgee_bootstrap"))
 })
 
-test_that("do_k comparison is cached separately", {
+test_that("do_k comparison runs once per new run", {
   ctl <- bootstrap_test_setup()
   comparisons <- 0L
   local_mocked_bindings(.modgee_compare_k = function(...) {
@@ -166,9 +162,9 @@ test_that("do_k comparison is cached separately", {
   expect_null(a$do_k)
   expect_null(d$do_k)
   expect_equal(b$do_k, c$do_k)
-  expect_equal(comparisons, 1L)
-  expect_equal(ctl$original, 1L)
-  expect_equal(ctl$replicate, 3L)
+  expect_equal(comparisons, 2L)
+  expect_equal(ctl$original, 4L)
+  expect_equal(ctl$replicate, 12L)
 })
 
 test_that("sample copies have unique IDs and a fixed group model", {

@@ -11,7 +11,7 @@ diagnostic_error <- function(expr) {
 test_that("all invalid time labels include their names and original positions", {
   x <- diagnostic_matrix(c("1900", "X1910", "Inf", "year"))
   error <- diagnostic_error(read_matrix(data = x, timestep = 10))
-  expect_match(error, "must be finite numbers", fixed = TRUE)
+  expect_match(error, "must be positive integers", fixed = TRUE)
   expect_match(error, 'time column 2 ("X1910")', fixed = TRUE)
   expect_match(error, 'time column 3 ("Inf")', fixed = TRUE)
   expect_match(error, 'time column 4 ("year")', fixed = TRUE)

@@ -34,19 +34,25 @@ interval in the selected range with at least this many detected species.}
 A numeric 0/1 matrix with species row names and time column names.
 A \code{preparation} attribute records the input type, input interval width,
 output interval width, retained labels, baseline selection and coverage.
-Coverage endpoints use an exclusive upper bound.
+Coverage endpoints use an exclusive upper bound. The returned matrix has
+class \code{modgee_matrix}; printing shows only matrix entries and row/column
+names. Preparation metadata remain accessible through
+\code{attr(M, "preparation")}. Existing informational messages are retained.
 }
 \description{
 Read and prepare a species detection matrix
 }
 \details{
-At least two time columns are required. Numeric column names represent the
+At least two time columns are required. Column names must represent finite
+positive integers (zero, negative and fractional years are rejected).
+Integer-valued numeric forms such as 2000.0 are accepted. The names represent the
 starting years of consecutive, equally spaced observation intervals.
 The input interval width is inferred from the spacing between column names.
 Missing observation intervals must not be omitted from the input. Equally
 spaced labels are interpreted as consecutive intervals, not isolated years.
 
 The output width must be an integer multiple of the input width.
+An invalid width error reports both the supplied timestep and input width.
 Input intervals must fit within calendar-aligned output intervals without
 crossing their boundaries. Output labels follow
 \code{floor(time / timestep) * timestep}.
@@ -124,4 +130,10 @@ M_selected <- read_matrix(
 
 \strong{Examples:}
 \code{\link{example_file}}, \code{\link{example_M}}, \code{\link{example_groups}}, \code{\link{example_result}}, \code{\link{example_grouped_result}}, \code{\link{example_bootstrap_result}}
+}
+
+\section{Console display}{
+Every successful call prints the prepared matrix, including calls assigned to
+a variable. The complete matrix is returned invisibly to avoid duplicate
+automatic printing; preparation metadata are retained but not displayed.
 }

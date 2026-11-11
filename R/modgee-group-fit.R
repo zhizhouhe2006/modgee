@@ -63,8 +63,7 @@
   if ( do_l ) l_ms_prime = l_ms_prime*exp(sum(l_H*l_ls))
   P_i_unconditional = compute_L_i_Cpp(l_M,l_d*l_hs,l_ms_prime)
   P_i_M_one = unlist(lapply(ones,function(ones_i) compute_L_i_Cpp(ones_i,l_d*l_hs,l_ms_prime)))
-  LL = log(P_i_unconditional/sum(P_i_M_one))
-  stopifnot(!is.nan(LL))
+  LL = .modgee_singleton_loglik(P_i_unconditional, sum(P_i_M_one))
 
   return(-LL)
   }
@@ -93,8 +92,6 @@
 
   if ( do_l) n_H = dim(H)[2]
       
-  cat('do_k = ',do_k,'\n',sep='')
-  cat('do_l = ',do_l,'\n',sep='')
   
   M_prime = t(apply(M,1,function(temp)
     {
@@ -154,9 +151,9 @@
   small_d = 1e-5
   big_d = 100
   
+  cat('Fitting detection parameters for species with only one detection...\n')
   if ( length(not_iii) )
     {
-    cat('Fitting detection parameters for species with only one detection...\n', sep='')
     for ( j in 1:length(not_iii) )
       {
       i = not_iii[j]
@@ -165,8 +162,9 @@
       neg_LL_guesses = rep(NA,n_guess)
       for ( k in 1:n_guess )
         {
-        neg_LL_guesses[k] = .compute_neg_LL_detect_param_1_obs_groups(log(d_guesses[k]),
-          l_M=M[i,],l_H=H[i,],l_ms=ms_est,l_hs=hs_est,l_k=k_est,l_ls=ls_est,do_k=do_k,do_l=do_l)
+        neg_LL_guesses[k] = .modgee_singleton_initial_value(
+          .compute_neg_LL_detect_param_1_obs_groups(log(d_guesses[k]),
+          l_M=M[i,],l_H=H[i,],l_ms=ms_est,l_hs=hs_est,l_k=k_est,l_ls=ls_est,do_k=do_k,do_l=do_l), species = rownames(M)[i])
         }
 
       parm = log(d_guesses[which.min(neg_LL_guesses)])

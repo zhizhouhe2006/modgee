@@ -9,6 +9,7 @@ make_detection_csv <- function(times, values, species = rownames(values)) {
 
 matrix_values <- function(x) {
   attr(x, "preparation") <- NULL
+  if (inherits(x, "modgee_matrix")) class(x) <- NULL
   x
 }
 
@@ -121,7 +122,7 @@ test_that("invalid matrix names and values are rejected", {
   bad <- x; colnames(bad)[2] <- "1900"
   expect_error(read_matrix(data = bad), "must be unique")
   bad <- x; colnames(bad)[2] <- "year"
-  expect_error(read_matrix(data = bad), "finite numbers")
+  expect_error(read_matrix(data = bad), "positive integers")
   for (value in c(2, -1, NA, Inf, NaN)) {
     bad <- x; bad[1, 2] <- value
     expect_error(read_matrix(data = bad), "species 'A', time '1901'")

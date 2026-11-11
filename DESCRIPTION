@@ -1,6 +1,6 @@
 Package: modgee
 Title: Estimating Extinction from Species Detection Histories
-Version: 0.1.1
+Version: 0.1.2
 Authors@R: person("Zhizhou", "He", , "hezhizhou2006@gmail.com", role = c("aut", "cre"))
 Description: Fits the original MODGEE model to species detection histories to estimate detection
           parameters, cumulative extinction and dark extinctions.

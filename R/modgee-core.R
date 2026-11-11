@@ -74,8 +74,7 @@ compute_neg_LL_detect_param_1_obs <- function (parm, l_M, l_H, l_ms, l_hs, l_k, 
         l_ms_prime = l_ms_prime * exp(sum(l_H * l_ls))
     P_i_unconditional = compute_L_i_Cpp(l_M, l_d * l_hs, l_ms_prime)
     P_i_M_one = unlist(lapply(ones, function(ones_i) compute_L_i_Cpp(ones_i, l_d * l_hs, l_ms_prime)))
-    LL = log(P_i_unconditional/sum(P_i_M_one))
-    stopifnot(!is.nan(LL))
+    LL = .modgee_singleton_loglik(P_i_unconditional, sum(P_i_M_one))
     return(-LL)
 }
 
@@ -83,7 +82,11 @@ est_detect_extinct_parms_ML <- function (M, H, ds_start, hs_start, ms_start, k_s
 {
     optimizer_runs <- list()
     optimx <- function(...) {
-        ans <- optimx::optimx(...)
+        ans <- tryCatch(optimx::optimx(...), error = function(e) {
+            optimizer_runs[[length(optimizer_runs) + 1L]] <<-
+                data.frame(convcode = 999L, value = NA_real_, row.names = "BFGS")
+            stop(e)
+        })
         optimizer_runs[[length(optimizer_runs) + 1L]] <<- ans
         if (any(is.na(ans$convcode) | ans$convcode != 0)) {
             warning("An optimization did not report normal convergence.", call. = FALSE)
@@ -97,8 +100,6 @@ est_detect_extinct_parms_ML <- function (M, H, ds_start, hs_start, ms_start, k_s
     do_l = !is.null(ls_start)
     if (do_l)
         n_H = dim(H)[2]
-    cat("do_k = ", do_k, "\n", sep = "")
-    cat("do_l = ", do_l, "\n", sep = "")
     M_prime = t(apply(M, 1, function(temp) {
         temp2 = 0 * temp
         iii = which(temp == 1)
@@ -150,17 +151,18 @@ est_detect_extinct_parms_ML <- function (M, H, ds_start, hs_start, ms_start, k_s
     ds_est_final[iii] = ds_est
     small_d = 1e-05
     big_d = 100
+    cat("Fitting detection parameters for species with only one detection...\n")
     if (length(not_iii)) {
-        cat("Fitting detection parameters for species with only one detection...\n", sep = "")
         for (j in 1:length(not_iii)) {
             i = not_iii[j]
             n_guess = 1000
             d_guesses = exp(seq(log(small_d), log(big_d), length.out = n_guess))
             neg_LL_guesses = rep(NA, n_guess)
             for (k in 1:n_guess) {
-                neg_LL_guesses[k] = compute_neg_LL_detect_param_1_obs(log(d_guesses[k]), l_M = M[i, ],
+                neg_LL_guesses[k] = .modgee_singleton_initial_value(
+          compute_neg_LL_detect_param_1_obs(log(d_guesses[k]), l_M = M[i, ],
                   l_H = H[i, ], l_ms = ms_est, l_hs = hs_est, l_k = k_est, l_ls = ls_est, do_k = do_k,
-                  do_l = do_l)
+                  do_l = do_l), species = rownames(M)[i])
             }
             parm = log(d_guesses[which.min(neg_LL_guesses)])
             best_parm = try(optimx(parm, compute_neg_LL_detect_param_1_obs, l_M = M[i, ], l_H = H[i,
